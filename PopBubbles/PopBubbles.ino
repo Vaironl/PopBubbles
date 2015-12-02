@@ -98,11 +98,11 @@ void setup(void) {
  
  //115200 was the old .begin value
   Serial.begin(9600);
-  Serial.println(F("Pop Bubbles"));
+  Serial.println(("Pop Bubbles"));
   
   tft.begin();
 
-  if (! ctp.begin(40)) {  // pass in 'sensitivity' coefficient
+  if (!ctp.begin(40)) {  // pass in 'sensitivity' coefficient
     Serial.println("Couldn't start FT6206 touchscreen controller");
     while (1);
   }
@@ -111,20 +111,16 @@ void setup(void) {
   
   tft.fillScreen(ILI9341_BLACK);
   
-  //tft.invertDisplay(true);
-  
   bubble = new Bubble(10,10,20,ILI9341_YELLOW);
-  bubble2 = new Bubble(10,100,20,ILI9341_YELLOW);
- 
-  // select the current color 'red'
-
-  currentcolor = ILI9341_RED;
 }
+
+//Speed for the bubbles
+int speed = 20;
 
 void loop() {
   
+  int randomNum = std::rand();
+  
   bubble->drawBubble();
-  bubble->deltaX(1);  
-  bubble2->drawBubble();
-  bubble2->deltaX(1);
+  bubble->deltaX(speed);  
 }

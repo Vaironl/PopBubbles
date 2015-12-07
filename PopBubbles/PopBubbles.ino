@@ -1,8 +1,8 @@
+#include <Adafruit_FT6206.h>
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <SPI.h>       // this is needed for display
 #include <Adafruit_ILI9341.h>
 #include <Wire.h>      // this is needed for FT6206
-#include <Adafruit_FT6206.h>
 
 int MAX_WIDTH = 240;//The width of the screen
 int MAX_HEIGHT = 320;//The height of the screen
@@ -16,7 +16,7 @@ Adafruit_FT6206 ctp = Adafruit_FT6206();
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 
 //The following will allow the background color to change depending on the difficulty
-int BACKGROUND = ILI9341_NAVY;
+int BACKGROUND = ILI9341_BLACK;
 //User score
 int score = 0;
 
@@ -152,7 +152,7 @@ void setup(void) {
   }
 }
 
-int counter = 0;//Counter variable for Debug purposes
+int counter = 20;//Counter variable for Debug purposes
 int difficulty = 0;//Difficulty of the game
 int VISIBLE_BUBBLES = NUM_OF_BUBBLES; // # of BUBBLES Visible at anytime
 int VISIBLE_BAD_BUBBLES = NUM_OF_BUBBLES / 4; // # of BUBBLES Visible at anytime
@@ -161,84 +161,112 @@ int DIFFICULTY_DELAY = 1000;
 //Testing to avoid flickering screen
 int TIMER = 0;
 
-void loop() {
-
-
-  if (TIMER >= 30)
+//Make al of the bubbles visible again
+void makeAllVisible()
+{
+  for (int i = 0; i < NUM_OF_BUBBLES; i++)
   {
+    bubble[i]->setVisible(true);
+    badBubbles[i]->setVisible(true);
+  }
+}
 
-    for (int i = 0; i < VISIBLE_BUBBLES; i++)
-    {
-      //bubble[i]->randomizePosition();
-      bubble[i]->drawBubble();
-    }
-
-    for (int i = 0; i < VISIBLE_BAD_BUBBLES; i++)
-    {
-      //badBubbles[i]->randomizePosition();
-      badBubbles[i]->drawBubble();
-    }
-
-
-    //Might have to make a separate function to clear circles
-    delay(DIFFICULTY_DELAY);
-
-    //Fill The screen only after the difficulty changes
-    if (counter == 5)
-    {
-      BACKGROUND = ILI9341_ORANGE;//ORANGE
-      tft.fillScreen(BACKGROUND);
-      difficulty = 1;
-      VISIBLE_BUBBLES = NUM_OF_BUBBLES / 2;
-      VISIBLE_BAD_BUBBLES = NUM_OF_BUBBLES / 2;
-      DIFFICULTY_DELAY = 600;
-    }
-    else if (counter == 15)
-    {
-      BACKGROUND = ILI9341_RED;
-      tft.fillScreen(BACKGROUND);
-      VISIBLE_BUBBLES = NUM_OF_BUBBLES / 4;
-      VISIBLE_BAD_BUBBLES = NUM_OF_BUBBLES;
-      difficulty = 2;
-      DIFFICULTY_DELAY = 400;
-    }
-    else if (counter == 35)
-    {
-      BACKGROUND = ILI9341_NAVY;
-      tft.fillScreen(BACKGROUND);
-      difficulty = 0;
-      counter = 0;
-      VISIBLE_BUBBLES = NUM_OF_BUBBLES;
-      VISIBLE_BAD_BUBBLES = NUM_OF_BUBBLES / 4;
-      DIFFICULTY_DELAY = 1000;
-    }
-
-
-    for (int i = 0; i < VISIBLE_BUBBLES; i++)
-    {
-      bubble[i]->clearBubble();
-    }
-    for (int i = 0; i < VISIBLE_BAD_BUBBLES; i++)
-    {
-      badBubbles[i]->clearBubble();
-    }
-    TIMER = 0;
-    counter++;
+void randomizeAllBubbels()
+{
+  //Randomize the position of all bubbles
+  for (int i = 0; i < NUM_OF_BUBBLES; i++)
+  {
+    bubble[i]->randomizePosition();
+    badBubbles[i]->randomizePosition();
   }
 
+}
+
+void clearAllBubbles()
+{
   for (int i = 0; i < VISIBLE_BUBBLES; i++)
   {
-    //If the touch screen is touched. Check for collision with bubbles
-    if (ctp.touched())
-    {
-      TS_Point p = ctp.getPoint();// Get the point from the screep
+    bubble[i]->clearBubble();
+  }
+  for (int i = 0; i < VISIBLE_BAD_BUBBLES; i++)
+  {
+    badBubbles[i]->clearBubble();
+  }
 
-      // flip it around to match the screen.
-      p.x = map(p.x, 0, 240, 240, 0);
-      p.y = map(p.y, 0, 320, 320, 0);
-      bubble[i]->checkCollision(p.x, p.y);
+}
+
+
+void displayInfo()
+{
+  tft.fillRect(105 - 80, 0, 33, 21, BACKGROUND);
+  tft.setCursor(105 - 80, 0);
+  tft.setTextSize(3);
+  tft.println(counter);
+
+  tft.fillRect(105 - 20, 0, 33, 21, BACKGROUND);
+  tft.setCursor(105 - 20, 0);
+  tft.setTextSize(3);
+  tft.print("score: ");
+
+  tft.fillRect(105 + 90, 0, 33, 21, BACKGROUND);
+  tft.setCursor(105 + 90, 0);
+  tft.setTextSize(3);
+  tft.print( + score);
+}
+
+
+//Inidicates the state of the game 0  = menu, 1  = playing, 2  = quit
+int gamestate  = 0;
+
+void displayGameMenu()
+{
+
+  tft.setTextColor(ILI9341_GREEN);
+  tft.setCursor(47.5, 87.5);
+  tft.setTextSize(5);
+  tft.println("Start");
+  tft.setCursor(62.5, 182.5);
+  tft.println("Quit");
+  tft.setTextColor(ILI9341_WHITE);
+
+  if (!ctp.touched())
+  {
+    return;
+  }
+
+  TS_Point p = ctp.getPoint();
+
+  p.x = map(p.x, 0, 240, 240, 0);
+  p.y = map(p.y, 0, 320, 320, 0);
+
+  if (p.x >= 47.5 && p.x <= 192.5)
+  {
+    if (p.y >= 87.5 && p.y <= 122.5)
+    {
+      tft.drawRect(47.5, 87.5, 145, 35, ILI9341_WHITE);
+      gamestate = 1;
+      BACKGROUND = ILI9341_NAVY;
+      tft.fillScreen(BACKGROUND);
     }
   }
+
+  if (p.x >= 62.5 && p.x <= 177.5)
+  {
+    if (p.y >= 182.5 && p.y <= 217.5)
+    {
+      tft.drawRect(62.5, 182.5, 115, 35, ILI9341_WHITE);
+      gamestate = 2;
+      tft.fillScreen(BACKGROUND);
+    }
+  }
+}
+
+
+
+void game()
+{
+
+  displayInfo();
 
   for (int i = 0; i < VISIBLE_BUBBLES; i++)
   {
@@ -269,8 +297,106 @@ void loop() {
   }
 
 
-  TIMER += 2;
-  Serial.print("Score: ");
-  Serial.println(score);
+  for (int i = 0; i < VISIBLE_BUBBLES; i++)
+  {
+    //bubble[i]->randomizePosition();
+    bubble[i]->drawBubble();
+  }
+
+  for (int i = 0; i < VISIBLE_BAD_BUBBLES; i++)
+  {
+    //badBubbles[i]->randomizePosition();
+    badBubbles[i]->drawBubble();
+  }
+
+
+  delay(DIFFICULTY_DELAY);
+
+  //Fill/Clear The screen only after the difficulty changes
+  if (counter == 13)
+  {
+    BACKGROUND = ILI9341_ORANGE;
+    tft.fillScreen(BACKGROUND);
+    difficulty = 1;
+    VISIBLE_BUBBLES = NUM_OF_BUBBLES / 2;
+    VISIBLE_BAD_BUBBLES = NUM_OF_BUBBLES / 2;
+    DIFFICULTY_DELAY = 600;
+    makeAllVisible();
+    randomizeAllBubbels();
+  }
+  else if (counter == 6)
+  {
+    BACKGROUND = ILI9341_RED;
+    tft.fillScreen(BACKGROUND);
+    VISIBLE_BUBBLES = NUM_OF_BUBBLES / 4;
+    VISIBLE_BAD_BUBBLES = NUM_OF_BUBBLES;
+    difficulty = 2;
+    DIFFICULTY_DELAY = 400;
+    makeAllVisible();
+    randomizeAllBubbels();
+  }
+  else if (counter == 0)
+  {
+    BACKGROUND = ILI9341_NAVY;
+    tft.fillScreen(BACKGROUND);
+    difficulty = 0;
+    counter = 20;
+    VISIBLE_BUBBLES = NUM_OF_BUBBLES;
+    VISIBLE_BAD_BUBBLES = NUM_OF_BUBBLES / 4;
+    DIFFICULTY_DELAY = 1000;
+    makeAllVisible();
+    randomizeAllBubbels();
+    gamestate = 0;
+
+    //Stop the game. Display user score & then go back to the main screen
+    BACKGROUND = ILI9341_BLACK;
+    tft.fillScreen(BACKGROUND);
+
+    tft.setCursor(47.5, 87.5);
+    tft.setTextSize(3);
+    tft.println("Your score was...");
+    tft.setCursor((MAX_WIDTH / 2) - 10, 182.5);
+    tft.setTextSize(5);
+    tft.println(score);
+
+    delay(4000);
+    tft.fillScreen(BACKGROUND);
+    score = 0;
+
+  }
+
+  clearAllBubbles();
+
+  counter--;
+
+}
+
+
+
+void loop() {
+
+  if (gamestate == 0)
+  {
+    displayGameMenu();
+    return;
+  }
+  else if (gamestate == 1)
+  {
+    game();
+    return;
+  }
+  else if (gamestate == 2)
+  {
+
+    tft.fillScreen(BACKGROUND);
+    tft.setTextColor(ILI9341_RED);
+    tft.setTextSize(4);
+    tft.setCursor(0, 140);
+    tft.println("Game Ended");
+
+    exit(1);
+
+  }
+
 
 }

@@ -21,12 +21,20 @@ int BACKGROUND = ILI9341_BLACK;
 int score = 0;
 
 
+//Speed the bubbles will move at
+int bubbleSpeed =  2;
+
+
 /* Bubble class, used to draw cool bubbles*/
 class Bubble
 {
   private:
     int x;//x Position
     int y;//y position
+    //Change in X of the bubble
+    int dx = bubbleSpeed;
+    //Change in Y of the bubble
+    int dy = bubbleSpeed;
     int TYPE = 0; // 0 is a good bubble 1 is a bad bubble
     int radius;
     int color;//The color of the bubble.
@@ -50,10 +58,29 @@ Bubble::Bubble()
   x = 0;
   y = 0;
   radius = 0;
-  color = ILI9341_YELLOW;
+
+  //Gives a random color to the bubbles
+  switch (random(4))
+  {
+    case 0:
+      color = ILI9341_YELLOW;
+      break;
+    case 1:
+      color = ILI9341_PINK;
+      break;
+    case 2:
+      color = ILI9341_GREENYELLOW;
+      break;
+    case 3:
+      color = ILI9341_WHITE;
+      break;
+    default:
+      color = ILI9341_YELLOW;
+  }
+
 }
 
-//Overloaded Constructor?
+//Overloaded Constructor
 Bubble::Bubble(int bubbleType, int initColor)
 {
   Bubble();
@@ -65,7 +92,33 @@ void Bubble::drawBubble()
 {
   if (visible)
   {
+
+    tft.drawCircle(x - dx, y - dy, radius, BACKGROUND);//clear the bubble
+    //If the bubble is going outside of the screen range warp it back
+    if (x + radius >= MAX_WIDTH + 1)
+    {
+      x = radius;//Reset to the left.
+
+    }
+    else if (x - radius <= -1) //left side of the screen. Move to the right side
+    {
+      x = MAX_WIDTH - radius; //Reset to the left.
+    }
+    if (y + radius >= MAX_HEIGHT + 1)
+    {
+      y = radius;//Reset to the left.
+
+    }
+    else if (y - radius <= -1) //left side of the screen. Move to the right side
+    {
+      y = MAX_HEIGHT - radius; //Reset to the left.
+    }
+
+
     tft.drawCircle(x, y, radius, color);
+
+    x += dx;
+    y += dy;
   }
 
 }
@@ -92,6 +145,8 @@ boolean Bubble::checkCollision(int touchX, int touchY)
       score--;
     }
 
+    tft.drawCircle(x - dx, y - dy, radius, BACKGROUND);
+
   }
 }
 
@@ -106,10 +161,24 @@ void Bubble::randomizePosition()
   radius = random((MAX_RADIUS - MIN_RADIUS) + 1) + MIN_RADIUS;
   x = random((MAX_WIDTH - radius) + 1);
   y = random((MAX_HEIGHT - radius) + 1);
+  dx = dy = bubbleSpeed;
+
+
+  //Random speed in the x direction
+  if (random(2) == 1) // if random is 49+ we have positive speed if it's 1 we have negative speed
+  {
+    dx = -dx;
+  }
+  //Random speed in the y direction
+  if (random(2) == 1) // if random is 0 we have positive speed if it's 1 we have negative speed
+  {
+    dy = -dy;
+
+  }
 }
 
 //The number of bubbles being drawn to the screen.
-const int NUM_OF_BUBBLES = 20;
+const int NUM_OF_BUBBLES = 15;
 
 //Declare the bubbles array
 Bubble *bubble[NUM_OF_BUBBLES];
@@ -120,7 +189,7 @@ void setup(void) {
   while (!Serial);     // used for leonardo debugging
 
   //115200 was the old .begin value
-  Serial.begin(115200);
+  Serial.begin(9600);
   Serial.println(("Pop Bubbles"));
 
   tft.begin();
@@ -135,6 +204,7 @@ void setup(void) {
   tft.fillScreen(BACKGROUND);
 
   randomSeed(analogRead(0));
+
 
   //Bubble position should be random from
 
@@ -152,14 +222,15 @@ void setup(void) {
   }
 }
 
-int counter = 20;//Counter variable for Debug purposes
-int difficulty = 0;//Difficulty of the game
+/*
+   Declare and initialize variables to be used to calculate game difficulty and advance game time
+*/
+
+int ticks = 100;//Number of ticks the game will go through
+int counter = ticks;//Counter variable for Debug purposes
 int VISIBLE_BUBBLES = NUM_OF_BUBBLES; // # of BUBBLES Visible at anytime
 int VISIBLE_BAD_BUBBLES = NUM_OF_BUBBLES / 4; // # of BUBBLES Visible at anytime
-int DIFFICULTY_DELAY = 1000;
 
-//Testing to avoid flickering screen
-int TIMER = 0;
 
 //Make al of the bubbles visible again
 void makeAllVisible()
@@ -171,9 +242,9 @@ void makeAllVisible()
   }
 }
 
-void randomizeAllBubbels()
+//Randomize the position of all bubbles
+void randomizeAllBubbles()
 {
-  //Randomize the position of all bubbles
   for (int i = 0; i < NUM_OF_BUBBLES; i++)
   {
     bubble[i]->randomizePosition();
@@ -182,23 +253,11 @@ void randomizeAllBubbels()
 
 }
 
-void clearAllBubbles()
-{
-  for (int i = 0; i < VISIBLE_BUBBLES; i++)
-  {
-    bubble[i]->clearBubble();
-  }
-  for (int i = 0; i < VISIBLE_BAD_BUBBLES; i++)
-  {
-    badBubbles[i]->clearBubble();
-  }
 
-}
-
-
+//Displays the counter & Score
 void displayInfo()
 {
-  tft.fillRect(105 - 80, 0, 33, 21, BACKGROUND);
+  tft.fillRect(105 - 80, 0, 55, 21, BACKGROUND);
   tft.setCursor(105 - 80, 0);
   tft.setTextSize(3);
   tft.println(counter);
@@ -299,53 +358,43 @@ void game()
 
   for (int i = 0; i < VISIBLE_BUBBLES; i++)
   {
-    //bubble[i]->randomizePosition();
     bubble[i]->drawBubble();
   }
 
   for (int i = 0; i < VISIBLE_BAD_BUBBLES; i++)
   {
-    //badBubbles[i]->randomizePosition();
     badBubbles[i]->drawBubble();
   }
 
-
-  delay(DIFFICULTY_DELAY);
-
   //Fill/Clear The screen only after the difficulty changes
-  if (counter == 13)
+  if (counter == ticks / 2)
   {
     BACKGROUND = ILI9341_ORANGE;
     tft.fillScreen(BACKGROUND);
-    difficulty = 1;
     VISIBLE_BUBBLES = NUM_OF_BUBBLES / 2;
     VISIBLE_BAD_BUBBLES = NUM_OF_BUBBLES / 2;
-    DIFFICULTY_DELAY = 600;
     makeAllVisible();
-    randomizeAllBubbels();
+    bubbleSpeed = 5;
+    randomizeAllBubbles();
   }
-  else if (counter == 6)
+  else if (counter == ticks / 5)
   {
     BACKGROUND = ILI9341_RED;
     tft.fillScreen(BACKGROUND);
     VISIBLE_BUBBLES = NUM_OF_BUBBLES / 4;
     VISIBLE_BAD_BUBBLES = NUM_OF_BUBBLES;
-    difficulty = 2;
-    DIFFICULTY_DELAY = 400;
     makeAllVisible();
-    randomizeAllBubbels();
+    bubbleSpeed = 10;
+    randomizeAllBubbles();
   }
   else if (counter == 0)
   {
-    BACKGROUND = ILI9341_NAVY;
-    tft.fillScreen(BACKGROUND);
-    difficulty = 0;
-    counter = 20;
+    counter = ticks;
     VISIBLE_BUBBLES = NUM_OF_BUBBLES;
     VISIBLE_BAD_BUBBLES = NUM_OF_BUBBLES / 4;
-    DIFFICULTY_DELAY = 1000;
     makeAllVisible();
-    randomizeAllBubbels();
+    bubbleSpeed = 2;
+    randomizeAllBubbles();
     gamestate = 0;
 
     //Stop the game. Display user score & then go back to the main screen
@@ -365,7 +414,6 @@ void game()
 
   }
 
-  clearAllBubbles();
 
   counter--;
 
